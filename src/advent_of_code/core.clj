@@ -204,6 +204,7 @@
 1715
 1602])
 
+; part 1
 ; find two entries that sum to 2020
 ; then multiply them together.
 ; it is guaranteed that only two entries sum to 2020
@@ -218,14 +219,46 @@
   [f list]
   (first (filter #(= 2020 (+ % f)) list)))
 
-(defn find-and-multiply
-  ([all]
-   (find-and-multiply (first all) (rest all)))
-  ([current list]
-   (if-let [pair (get-pair current list)]
-     (* current pair)
-     (find-and-multiply (first list) (rest list)))))
+(defn find-2
+  [current list]
+  (if (nil? list)
+    nil
+    (if-let [pair (get-pair current list)]
+      pair
+      (find-2 (first list) (rest list)))))
 
+(defn find-and-multiply-2
+  ([all]
+   (find-and-multiply-2 (first all) (rest all)))
+  ([current list]
+     (if-let [two (find-2 current list)]
+       (* current two)
+       nil)))
+
+; part 2
+; do the same thing, except with 3 numbers instead of 2
+; instead of doing a linear type search like in part 1 (in get-pair)
+; I was thinking of first sorting the list, and then doing a binary search.
+; But I tried the naive solution and it was easier.
+; 
+
+(defn find-other-two
+  [one list]
+  (if (empty? list)
+    nil ; must be a better way than a bunch of nil checks, but i am scrub
+    (if-let [three (get-pair (+ one (first list)) (rest list))]
+      (* one (first list) three)
+      (find-other-two one (rest list)))))
+
+
+(defn find-and-multiply-3
+  ([all]
+   (let [list all] ; TODO: should sort here, but try naive solution first
+     (find-and-multiply-3 (first list) (rest list))))
+  ([one list]
+   (if-let [ans (find-other-two one list)]
+     ans
+     (find-and-multiply-3 (first list) (rest list)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
