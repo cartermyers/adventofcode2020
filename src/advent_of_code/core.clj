@@ -47,8 +47,28 @@
 ;; see how many valid passwords are in input:
 
 (defn count-valid-passwords
-  [in]
-  (count (filter valid-password? (parse-input in))))
+  ([in]
+   (count-valid-passwords valid-password?))
+  ([in f]
+   (count (filter f (parse-input in)))))
+
+
+; part-2 logic
+; 
+
+(defn xor
+  "Exactly one value is true."
+  [a b]
+  (and (or a b) (not (and a b))))
+
+(defn char-at?
+  "Returns true if c is in the string at index i using 1-based index"
+  [s c i]
+  (= (get s (dec i)) c))
+
+(defn valid-password-2?
+  [password]
+  (apply xor (map #(char-at? (:password password) (:letter password) %) (:range password))))
 
 (defn -main
   "I don't do a whole lot ... yet."
