@@ -1,4 +1,4 @@
-(ns dec2)
+(ns advent-of-code.dec2)
 (require '[clojure.java.io :as io])
 (require '[clojure.string :as str])
 
