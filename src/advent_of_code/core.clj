@@ -68,9 +68,20 @@
   ([]
    (get-highest-seat-id (parse-input input)))
   ([seats]
-   (apply max (map get-seat-id seats)))
-  )
+   (apply max (map get-seat-id seats))))
 
+(defn is-one-seat-apart?
+  [seat-id1 seat-id2]
+  (= seat-id1 (dec seat-id2)))
+
+(defn find-my-seat
+  "Sort all of the seats by ID, then find the gap"
+  ([]
+   (find-my-seat (sort (map get-seat-id (parse-input input)))))
+  ([seat-ids]
+   (if (is-one-seat-apart? (first seat-ids) (second seat-ids))
+     (find-my-seat (rest seat-ids))
+     (inc (first seat-ids)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
