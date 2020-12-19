@@ -58,11 +58,24 @@
 (def can-hold-shiny-bag?-memo (memoize can-hold-shiny-bag?))
 
 (defn count-all
-  ([] count-all (parse-input input))
+  ([] (count-all (parse-input input)))
   ([rules]
    (count (filter #(can-hold-shiny-bag?-memo rules (get rules (first %))) rules))))
 
+(defn count-bags
+  [bags]
+  (reduce + (map second bags)))
 
+
+(defn count-bags-in-bag
+  ([] (count-bags-in-bag (parse-input input)))
+  ([rules] (count-bags-in-bag rules :shiny-gold))
+  ([rules bag]
+   (+ (count-bags (get rules bag))
+      (reduce + (map #(* (second %) (count-bags-in-bag rules (first %))) (get rules bag))))
+   
+   
+   ))
 
 
 (defn -main
