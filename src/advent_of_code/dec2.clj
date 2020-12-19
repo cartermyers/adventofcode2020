@@ -47,7 +47,7 @@
 
 (defn count-valid-passwords
   ([in]
-   (count-valid-passwords valid-password?))
+   (count-valid-passwords  in valid-password?))
   ([in f]
    (count (filter f (parse-input in)))))
 

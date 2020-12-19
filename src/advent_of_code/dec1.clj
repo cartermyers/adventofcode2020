@@ -209,10 +209,6 @@
 ; it is guaranteed that only two entries sum to 2020
 ; 
 
-(defn get-third-pair
-  [f list]
-  ())
-
 (defn get-pair
   ; finds the first number that adds to first to 2020
   [f list]
