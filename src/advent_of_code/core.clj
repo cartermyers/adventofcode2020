@@ -2,14 +2,18 @@
   (:gen-class))
 (require '[clojure.java.io :as io])
 (require '[clojure.string :as str])
+(require '[clojure.set])
 
 (def input (slurp (.getFile (io/resource "dec6_input.txt"))))
 
+(defn parse-person
+  [person]
+  (into #{} person))
 
 (defn parse-group
-  "Returns a set of characters that contain the characters of each answered question"
+  "Returns a set of characters to which every person in the group answered yes"
   [group]
-  (into #{} (filter #(not= \newline %) group)))
+  (reduce clojure.set/intersection (map parse-person (str/split group #"\n"))))
 
 (defn parse-input
   [in]
