@@ -7,7 +7,7 @@
 
 (defn parse-input
   [in]
-  (map #(Integer/parseInt %) (str/split in #"\n")))
+  (map #(Long/valueOf %) (str/split in #"\n")))
 
 
 ; this problem is similar to what happened in dec1 part 2, so steal some code from there:
@@ -39,23 +39,29 @@
 ; keep taking more numbers until it's over the sum
 ; drop the first number and start over 
 ; this was logically fine, but takes too long. leads to stack overflow
+; 
+; a better option might be to do more of an index based option
+; as in, [start, stop) -- starting at [0, 1). 
+; If apply + (subvec v start stop) = sum, then done
+; else if greater than sum, then increment start
+; else increment stop
+; 
 
 (defn find-contiguous-set
-  ([list sum] (find-contiguous-set list sum 2))
-  ([list sum length]
-   (print length \newline)
-   (let [l (take length list)]
+  ([vector sum] (find-contiguous-set vector sum 0 1))
+  ([vector sum start stop]
+   (let [l (subvec vector start stop)]
      (if (= sum (apply + l))
        l
        (if (> (apply + l) sum)
-         (find-contiguous-set (rest list) sum)
-         (find-contiguous-set list sum (inc length))
+         (find-contiguous-set vector sum (inc start) stop)
+         (find-contiguous-set vector sum start (inc stop))
          )))))
 
 (defn solve
   ([] (solve (parse-input input) 25))
   ([list preamble_length]
-   (let [l (find-contiguous-set list (find-weakness list preamble_length))]
+   (let [l (find-contiguous-set (vec list) (find-weakness list preamble_length))]
      (+ (apply min l) (apply max l)))))
 
 
