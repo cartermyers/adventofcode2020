@@ -25,39 +25,44 @@
   [in]
   (map parse-line (str/split in #"\n")))
 
-; assume turns only in 90 degree intervals (e.g., 90, 180, 270, etc)
-(defn turn 
-  [current direction]
-    (case direction
-      :left (case current
-              :north :west
-              :west :south
-              :south :east
-              :east :north)
-      :right (case current
-              :north :east
-              :east :south
-              :south :west
-              :west :north)))
+(defn deg-to-rad
+  [deg]
+  (* deg (/ Math/PI 180)))
 
+; use rotation matrix:
+(defn rotate
+  "Rotate a point (at coords) around the origin by radians"
+  [coords radians]
+  {:x (- (* (:x coords) (Math/cos radians)) (* (:y coords) (Math/sin radians))), 
+   :y (+ (* (:x coords) (Math/sin radians)) (* (:y coords) (Math/cos radians)))})
 
-(defn update-facing
-  [position instruction]
-  (if (= 0 (:magnitude instruction))
-    position
-    (update-facing (update position :facing #(turn % (:direction instruction))) 
-                   (update instruction :magnitude #(- % 90)))))
+(defn rotate-waypoint
+  [position angle]
+  (update position :waypoint #(rotate % (deg-to-rad angle))))
+
+(defn update-waypoint
+  [position axis direction magnitude]
+  (update position :waypoint #(update % axis (fn [a] (direction a magnitude)))))
+
+(defn update-axis
+  [position axis magnitude]
+  (update position axis #(+ % (* (axis (:waypoint position)) magnitude))))
+
+(defn update-position
+  [position magnitude]
+  (update-axis (update-axis position :x magnitude)
+               :y magnitude))
 
 (defn move
   [position instruction]
   (case (:direction instruction)
-    :north (update position :y #(+ % (:magnitude instruction)))
-    :south (update position :y #(- % (:magnitude instruction)))
-    :east (update position :x #(+ % (:magnitude instruction)))
-    :west (update position :x #(- % (:magnitude instruction)))
-    :forward (move position (update instruction :direction (fn [x] (:facing position))))
-    :left (update-facing position instruction)
-    :right (update-facing position instruction)))
+    :north (update-waypoint position :y + (:magnitude instruction))
+    :south (update-waypoint position :y - (:magnitude instruction))
+    :east (update-waypoint position :x + (:magnitude instruction))
+    :west (update-waypoint position :x - (:magnitude instruction))
+    :forward (update-position position (:magnitude instruction))
+    :left (rotate-waypoint position (:magnitude instruction))
+    :right (rotate-waypoint position (- (:magnitude instruction)))))
 
 (defn manhattan-dist
   "From the origin at (0, 0)"
@@ -67,7 +72,7 @@
 
 (defn solve
   ([] (solve (parse-input input)))
-  ([instructions] (solve instructions {:x 0, :y 0, :facing :east}))
+  ([instructions] (solve instructions {:x 0, :y 0, :waypoint {:x 10, :y 1}}))
   ([instructions position]
    (if (empty? instructions)
      (manhattan-dist position)
