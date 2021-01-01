@@ -8,7 +8,7 @@
 (defn parse-mask
   [mask]
   {:mask 
-   (keep-indexed #(when (not (= \X %2)) (vector (- 36 %1 1) (Integer/parseInt (str %2))))
+   (keep-indexed #(when (not (= \0 %2)) (vector (- 36 %1 1) (if (= \X %2) :X 1)))
                  (second (str/split mask #" = ")))})
 
 (defn parse-memory
@@ -40,22 +40,33 @@
   [k value]
   (= 1 (bit-and 1 (bit-shift-right value k))))
 
+(defn force-bit-to-zero
+  [k value]
+  (if (kth-bit-set? k value) (- value (power-of-2 k)) value))
+
+(defn force-bit-to-one
+  [k value]
+  (if (kth-bit-set? k value) value (+ value (power-of-2 k))))
+
+(defn create-floating-possibilities
+  [k values]
+  (reduce #(into %1 (vector (force-bit-to-zero k %2) (force-bit-to-one k %2))) [] values))
+
 (defn mask-bit
-  [[k bit] value]
-  (let [is-set (kth-bit-set? k value)]
-    (case bit
-      0 (if is-set (- value (power-of-2 k)) value)
-      1 (if is-set value (+ value (power-of-2 k))))))
+  [[k bit] values]
+  (case bit
+    :X (create-floating-possibilities k values)
+    1 (mapv #(force-bit-to-one k %) values)))
 
 (defn apply-bit-mask
-  [mask value]
+  [mask values]
   (if (empty? mask)
-    value
-    (apply-bit-mask (rest mask) (mask-bit (first mask) value))))
+    values
+    (apply-bit-mask (rest mask) (mask-bit (first mask) values))))
 
 (defn write-memory
   [memory address value]
-  (assoc memory address (apply-bit-mask (:mask memory) value)))
+  (reduce #(assoc %1 %2 value) memory (apply-bit-mask (:mask memory) (vector address))))
 
 (defn execute-instruction
   [instruction memory]
@@ -64,7 +75,7 @@
     (write-memory memory (:address instruction) (:value instruction))))
 
 (defn execute
-  ([instructions] (execute instructions {:mask (repeat 36 "0")}))
+  ([instructions] (execute instructions {:mask '()}))
   ([instructions memory]
    (if (empty? instructions)
      memory
