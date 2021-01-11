@@ -12,17 +12,15 @@
 ###.####")
 
 (defn parse-row
-  [row] (mapv #(= \# %) row))
+  [row] 
+  (into {} (map-indexed vector (map #(= \# %) row))))
 
 (defn parse-input
+  "Returns a map
+   where the key is the y coordinate
+   and the value is a map from x coordinate to state"
   [in]
-  (mapv parse-row (str/split in #"\n")))
-
-; Jesus christ, this code is a mess...
-; I'm thinking too much about indices and not in a functional way. 
-; But I've always had problem thinking about conway's game of life like that.
-; I think I should just change it all to a map with all coordinates.
-; And keep track of min/max coordinates
+  (into {} (map-indexed vector (map parse-row (str/split in #"\n")))))
 
 (def inc-x #(update % :x inc))
 (def dec-x #(update % :x dec))
@@ -49,8 +47,8 @@
 
 (defn active?
   [cube coordinates]
-  (nth 
-   (nth (get cube (:z coordinates) nil)
+  (get 
+   (get (get cube (:z coordinates) nil)
         (:y coordinates) nil)
    (:x coordinates) false))
 
@@ -66,41 +64,77 @@
         (and (active? cube coordinate) (= 2 active-neighbors)))
     ))
   
-(defn get-next-state-for-x
-  [cube x-row y z]
-  (mapv #(get-next-state-for-coordinate cube %)
-       (map (fn [x] {:x x :y y :z z}) (range -1 (inc (count x-row)))))) ; check +/- 1
+(def min-coordinate (memoize #(first (apply min-key first %)))) ; TODO: memoize may not be needed here
+(def max-coordinate (memoize #(first (apply max-key first %))))
+(def range-coordinates-with-edges #(range (dec %1) (+ 2 %2))) ;returns [min - 1, max + 1] to check edges
 
-(defn empty-row
-  [length]
-  (into [] (repeat length false)))
+; TODO: also need to see if edges are empty.
+; If they are, omit them. Else, add them.
+; BUT we should leave in empty rows/planes that are in the middle
+; Just for a little bit of efficiency in memory
+(defn get-next-state-for-x
+  [cube y z]
+  {y (into {}
+           (map #(vector % (get-next-state-for-coordinate cube {:x % :y y :z z})) 
+                (range-coordinates-with-edges (:x (:mins cube)) (:x (:maxes cube)))))}) 
 
 (defn get-next-state-for-xy-plane
-  [cube plane z]
-  (let [plane-with-edge-rows (into [(empty-row (count (first plane)))] (conj plane (empty-row (count (first plane)))))]
-    (map #(get-next-state-for-x cube %1 %2 z)
-         plane-with-edge-rows
-       ; need to check +/- 1 y to see if we need a new row
-         (range -1 (inc (count (plane)))))))
+  [cube z]
+  {z (into {}
+           (map #(get-next-state-for-x cube % z)
+                (range-coordinates-with-edges (:y (:mins cube)) (:y (:maxes cube)))))})
 
-(defn empty-plane
-  [size]
-  (into [] (repeat size (empty-row size))))
+; TODO: I could also just dec/inc the old min/max without iterating through the whole map...
+(defn get-cube-with-mins-and-maxes
+  [cube]
+  (into cube {:mins {:z (min-coordinate cube) :y (min-coordinate (second (first cube))) :x (min-coordinate (second (first (second (first cube)))))}
+              :maxes {:z (max-coordinate cube) :y (max-coordinate (second (first cube))) :x (max-coordinate (second (first (second (first cube)))))}}))
 
+; TODO: there's a lot of similar structure with this function
+; and get-next-state-for-xy-plane and get-next-state-for-x.
+; I'm sure I could consolidate them, but another day.
 (defn get-next-state
   [cube]
-  ; need to check +/- 1 for each edge to see if new things are generated
-  (let [min_z (first (first (min-key first cube)))
-        max_z (first (first (max-key first cube)))
-        default-plane (empty-plane (count (second (first cube))))]
-    (into {} 
-          (map #(vector % (get-next-state-for-xy-plane cube (get cube % default-plane) %)) 
-               (range (dec min_z) (+ 2 max_z))))))
+(let [new-cube 
+      (into {} (map #(get-next-state-for-xy-plane cube %)
+                    (range-coordinates-with-edges (:z (:mins cube)) (:z (:maxes cube)))))]
+  (get-cube-with-mins-and-maxes new-cube)))
+
+(defn count-row
+  [row]
+  (count (filter second row)))
+
+(defn count-plane
+  [plane]
+  (reduce + (map #(count-row (second %)) plane)))
+
+(defn count-active
+  [cube]
+  (reduce + (map #(count-plane (second %)) (dissoc cube :mins :maxes))))
 
 (defn solve 
   ([] (solve (parse-input input)))
   ([original-xy-plane]
-   (get-next-state {0 original-xy-plane})))
+   (solve (get-cube-with-mins-and-maxes {0 original-xy-plane}) 6))
+  ([cube cycles]
+   (if (= 0 cycles)
+     (count-active cube)
+     (solve (get-next-state cube) (dec cycles)))))
+
+(defn row-to-str
+  [row]
+  (str/join (map #(if (second %) "#" ".") row)))
+
+(defn plane-to-str
+  [plane]
+  (str/join "\n" (map #(str "y=" (first %) " " (row-to-str (second %))) plane)))
+
+(defn print-cube
+  [cube]
+  (doseq [a (map #(vector (first %) (plane-to-str (second %))) 
+                 (dissoc cube :mins :maxes))]
+    (println "z=" (first a) "\n" (second a) "\n")
+    ))
 
 (defn -main
   "I don't do a whole lot ... yet."
