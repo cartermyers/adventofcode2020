@@ -43,3 +43,6 @@
     (is (= neighbors-of-origin 
            (get-all-neighbor-coordinates {:x 0 :y 0 :z 0})))))
 
+(deftest part1
+  (testing "So I can refactor the part 1 code and make sure it still works"
+    (is (= 336 (solve)))))

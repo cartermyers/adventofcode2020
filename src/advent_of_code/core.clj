@@ -11,16 +11,19 @@
 .##..###
 ###.####")
 
+; have a sparse set that only contains coordinates of active cells
+; TODO: current implementation depends on having at least an active cell at
+; both min and max for x and y. Could easily change but too lazy rn.
 (defn parse-row
-  [row] 
-  (into {} (map-indexed vector (map #(= \# %) row))))
+  [y row] 
+  (into #{} (keep-indexed (fn [x v] (if v {:x x :y y :z 0})) (map #(= \# %) row))))
 
 (defn parse-input
   "Returns a map
    where the key is the y coordinate
    and the value is a map from x coordinate to state"
   [in]
-  (into {} (map-indexed vector (map parse-row (str/split in #"\n")))))
+  (reduce #(into %1 %2) #{} (map-indexed parse-row (str/split in #"\n"))))
 
 (def inc-x #(update % :x inc))
 (def dec-x #(update % :x dec))
@@ -46,95 +49,78 @@
    coordinate))
 
 (defn active?
-  [cube coordinates]
-  (get 
-   (get (get cube (:z coordinates) nil)
-        (:y coordinates) nil)
-   (:x coordinates) false))
+  [cube coordinate]
+  (contains? cube coordinate))
 
 (defn get-active-neighbor-count
   [cube coordinate]
   (count (filter #(active? cube %)
                  (get-all-neighbor-coordinates coordinate))))
   
-(defn get-next-state-for-coordinate
+(defn next-state-is-active?
   [cube coordinate]
   (let [active-neighbors (get-active-neighbor-count cube coordinate)]
     (or (= 3 active-neighbors) 
         (and (active? cube coordinate) (= 2 active-neighbors)))
     ))
-  
-(def min-coordinate (memoize #(first (apply min-key first %)))) ; TODO: memoize may not be needed here
-(def max-coordinate (memoize #(first (apply max-key first %))))
+
 (def range-coordinates-with-edges #(range (dec %1) (+ 2 %2))) ;returns [min - 1, max + 1] to check edges
 
-; TODO: also need to see if edges are empty.
-; If they are, omit them. Else, add them.
-; BUT we should leave in empty rows/planes that are in the middle
-; Just for a little bit of efficiency in memory
 (defn get-next-state-for-x
-  [cube y z]
-  {y (into {}
-           (map #(vector % (get-next-state-for-coordinate cube {:x % :y y :z z})) 
-                (range-coordinates-with-edges (:x (:mins cube)) (:x (:maxes cube)))))}) 
+  [cube limits y z]
+  (filter #(next-state-is-active? cube %)
+          (map (fn [x] {:x x :y y :z z})
+               (range-coordinates-with-edges (:x (:mins limits)) (:x (:maxes limits)))))) 
 
 (defn get-next-state-for-xy-plane
-  [cube z]
-  {z (into {}
-           (map #(get-next-state-for-x cube % z)
-                (range-coordinates-with-edges (:y (:mins cube)) (:y (:maxes cube)))))})
+  [cube limits z]
+  (reduce #(into %1 %2) #{} (map #(get-next-state-for-x cube limits % z)
+       (range-coordinates-with-edges (:y (:mins limits)) (:y (:maxes limits))))))
 
-; TODO: I could also just dec/inc the old min/max without iterating through the whole map...
-(defn get-cube-with-mins-and-maxes
-  [cube]
-  (into cube {:mins {:z (min-coordinate cube) :y (min-coordinate (second (first cube))) :x (min-coordinate (second (first (second (first cube)))))}
-              :maxes {:z (max-coordinate cube) :y (max-coordinate (second (first cube))) :x (max-coordinate (second (first (second (first cube)))))}}))
-
-; TODO: there's a lot of similar structure with this function
-; and get-next-state-for-xy-plane and get-next-state-for-x.
-; I'm sure I could consolidate them, but another day.
 (defn get-next-state
+  [cube limits]
+  (reduce #(into %1 %2) #{} (map #(get-next-state-for-xy-plane cube limits %)
+                (range-coordinates-with-edges (:z (:mins limits)) (:z (:maxes limits))))))
+
+
+(defn apply-to-coordinate
+  [func cube coordinate]
+  (apply func (map #(get % coordinate) cube)))
+
+(defn min-coordinate
+  [cube coordinate]
+  (apply-to-coordinate min cube coordinate))
+
+(defn max-coordinate
+  [cube coordinate]
+  (apply-to-coordinate max cube coordinate))
+
+(defn get-coordinate-limits
   [cube]
-(let [new-cube 
-      (into {} (map #(get-next-state-for-xy-plane cube %)
-                    (range-coordinates-with-edges (:z (:mins cube)) (:z (:maxes cube)))))]
-  (get-cube-with-mins-and-maxes new-cube)))
+  {:mins (into {} (map #(vector % (min-coordinate cube %)) [:z :y :x]))
+   :maxes (into {} (map #(vector % (max-coordinate cube %)) [:z :y :x]))})
 
-(defn count-row
-  [row]
-  (count (filter second row)))
+(defn apply-to-dimensions
+  [coordinate f]
+  (reduce-kv (fn [m k v] (assoc m k (f v))) {} coordinate))
 
-(defn count-plane
-  [plane]
-  (reduce + (map #(count-row (second %)) plane)))
-
-(defn count-active
-  [cube]
-  (reduce + (map #(count-plane (second %)) (dissoc cube :mins :maxes))))
+; TODO: I wish I could use fmap (i.e., (use '[clojure.algo.generic.functor :only (fmap)]))
+; here, but I can't figure out the import problems
+(defn update-limits
+  [limits]
+  (update (update limits :mins #(apply-to-dimensions % dec))
+          :maxes #(apply-to-dimensions % inc)))
 
 (defn solve 
   ([] (solve (parse-input input)))
   ([original-xy-plane]
-   (solve (get-cube-with-mins-and-maxes {0 original-xy-plane}) 6))
-  ([cube cycles]
+   (solve original-xy-plane (get-coordinate-limits original-xy-plane) 6))
+  ([cube limits cycles]
    (if (= 0 cycles)
-     (count-active cube)
-     (solve (get-next-state cube) (dec cycles)))))
-
-(defn row-to-str
-  [row]
-  (str/join (map #(if (second %) "#" ".") row)))
-
-(defn plane-to-str
-  [plane]
-  (str/join "\n" (map #(str "y=" (first %) " " (row-to-str (second %))) plane)))
-
-(defn print-cube
-  [cube]
-  (doseq [a (map #(vector (first %) (plane-to-str (second %))) 
-                 (dissoc cube :mins :maxes))]
-    (println "z=" (first a) "\n" (second a) "\n")
-    ))
+     (count cube)
+     (solve (get-next-state cube limits) 
+            (update-limits limits)
+            (dec cycles)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
