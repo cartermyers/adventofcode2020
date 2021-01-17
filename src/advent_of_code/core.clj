@@ -16,7 +16,7 @@
 ; both min and max for x and y. Could easily change but too lazy rn.
 (defn parse-row
   [y row] 
-  (into #{} (keep-indexed (fn [x v] (if v {:x x :y y :z 0})) (map #(= \# %) row))))
+  (into #{} (keep-indexed (fn [x v] (if v {:x x :y y :z 0 :w 0})) (map #(= \# %) row))))
 
 (defn parse-input
   "Returns a map
@@ -31,6 +31,8 @@
 (def dec-y #(update % :y dec))
 (def inc-z #(update % :z inc))
 (def dec-z #(update % :z dec))
+(def inc-w #(update % :w inc))
+(def dec-w #(update % :w dec))
 
 (defn reduce-to-set
   [original funcs]
@@ -43,9 +45,10 @@
   ; then remove the full identity
   [coordinate]
   (disj
-   (reduce reduce-to-set #{coordinate} [[inc-z dec-z identity]
-                                         [inc-y dec-y identity]
-                                         [inc-x dec-x identity]])
+   (reduce reduce-to-set #{coordinate} [[inc-w dec-w identity]
+                                        [inc-z dec-z identity]
+                                        [inc-y dec-y identity]
+                                        [inc-x dec-x identity]])
    coordinate))
 
 (defn active?
@@ -67,20 +70,25 @@
 (def range-coordinates-with-edges #(range (dec %1) (+ 2 %2))) ;returns [min - 1, max + 1] to check edges
 
 (defn get-next-state-for-x
-  [cube limits y z]
+  [cube limits y z w]
   (filter #(next-state-is-active? cube %)
-          (map (fn [x] {:x x :y y :z z})
+          (map (fn [x] {:x x :y y :z z :w w})
                (range-coordinates-with-edges (:x (:mins limits)) (:x (:maxes limits)))))) 
 
 (defn get-next-state-for-xy-plane
-  [cube limits z]
-  (reduce #(into %1 %2) #{} (map #(get-next-state-for-x cube limits % z)
+  [cube limits z w]
+  (reduce #(into %1 %2) #{} (map #(get-next-state-for-x cube limits % z w)
        (range-coordinates-with-edges (:y (:mins limits)) (:y (:maxes limits))))))
+
+(defn get-next-state-for-xyz-plane
+  [cube limits w]
+  (reduce #(into %1 %2) #{} (map #(get-next-state-for-xy-plane cube limits % w)
+                                 (range-coordinates-with-edges (:y (:mins limits)) (:y (:maxes limits))))))
 
 (defn get-next-state
   [cube limits]
-  (reduce #(into %1 %2) #{} (map #(get-next-state-for-xy-plane cube limits %)
-                (range-coordinates-with-edges (:z (:mins limits)) (:z (:maxes limits))))))
+  (reduce #(into %1 %2) #{} (map #(get-next-state-for-xyz-plane cube limits %)
+                (range-coordinates-with-edges (:w (:mins limits)) (:w (:maxes limits))))))
 
 
 (defn apply-to-coordinate
@@ -97,8 +105,8 @@
 
 (defn get-coordinate-limits
   [cube]
-  {:mins (into {} (map #(vector % (min-coordinate cube %)) [:z :y :x]))
-   :maxes (into {} (map #(vector % (max-coordinate cube %)) [:z :y :x]))})
+  {:mins (into {} (map #(vector % (min-coordinate cube %)) [:z :y :x :w]))
+   :maxes (into {} (map #(vector % (max-coordinate cube %)) [:z :y :x :w]))})
 
 (defn apply-to-dimensions
   [coordinate f]
