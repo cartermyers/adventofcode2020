@@ -25,23 +25,45 @@
 
 ; end of parsing
 
-(defn add-or-mult
-  "Given an expression with no parentheses, 
-   and only 2 terms"
-  [expr]
-  ((case (second expr)
-     :add +
-     :mult *)
-   (first expr) (nth expr 2)))
+; NOTE!!!!!!!!!!
+; This code is poorly written. There are definitely better ways to do this code.
+; But I wanted to do this without peeking at anything so enter at your own risk.
 
-(defn evaluate
+; E -> <number> [(+|*) E] | (E)
+
+(defn evaluate-addition
+  "A hack to evaluate addition first.
+   Either evaluates the addition or returns the same three terms"
+  [op expr]
+  (if (= :add (first expr))
+    [(+ op (second expr))]
+    (into [op] (take 2 expr)))
+  )
+
+(defn evaluate-all-addition
   "Given an expression with no parentheses,
    and an arbitrary number of terms."
-  ([expr]
-   (let [vec (into [] expr)]
-     (if (> 3 (count vec))
-       (first vec)
-       (evaluate (into [(add-or-mult vec)] (drop 3 vec)))))))
+  ([expr] (evaluate-all-addition [(first expr)] (rest expr)))
+  ([res expr]
+   (if (> 2 (count expr))
+     (into res expr)
+     (evaluate-all-addition 
+      (into (into [] (drop-last res)) (evaluate-addition (last res) expr)) 
+      (drop 2 expr))
+     )))
+
+(defn evaluate-all-multiplication
+  "Make the terrible assumption that it's all multiplication"
+  [expr]
+  (if (> 3 (count expr))
+    (first expr)
+    (evaluate-all-multiplication
+     (into [(* (first expr) (nth expr 2))] (drop 3 expr)))
+    ))
+
+(defn evaluate
+  [expr]
+  (evaluate-all-multiplication (evaluate-all-addition expr)))
 
 (defn evaluate-parenthetical-expr
   "Just a hlper function to make evaluate-with-parentheses a bit clearer.
