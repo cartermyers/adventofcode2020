@@ -89,27 +89,41 @@
 
 (defn add-to-results
   [results new-results]
-  (println "C: " results new-results)
   (into #{} (for [r results x (map str new-results)] (str r x))))
 
+; Jesus christ this method is messy, but it works.
+; 
+; The division of labor between combine/combine helper is supposed to help with different options.
+; combine looks at all options, while combine-helper is meant to look at a single option and combine it,
+; using the combine function if needed to find other options
 (defn combine-helper
   "Takes in a list (possibly nested) that represents a possibility."
   [possibility results]
-  (println "B: " results possibility)
-  (if (empty? possibility)
-    results
-    (combine-helper (rest possibility)
-                    (add-to-results results
-                                    (if (is-char? (first possibility))
-                                      [(first possibility)]
-                                      (combine (first possibility)))))
-    ))
+  (if (is-char? possibility)
+    (add-to-results results [possibility])
+    (if (empty? possibility)
+      results
+      (combine-helper (rest possibility)
+                      (add-to-results results
+                                      (if (is-char? (first possibility))
+                                        [(first possibility)]
+                                        (combine (first possibility))))))))
 
 (defn combine
-  [possibilities] 
-  (reduce #(into #{} (combine-helper %2 %1)) #{""} possibilities))
+  ([possibilities] (reduce into #{} (combine possibilities '(""))))
+  ([possibilities results]
+   (map #(combine-helper % results) possibilities)))
 
+(defn count-matching
+  [all-possibilities messages]
+  (count (filter #(contains? all-possibilities %) messages)))
 
+(defn solve
+  ([] 
+   (let [in (parse-input input)]
+     (solve (:rules in) (:messages in))))
+  ([rules messages]
+   (count-matching (combine (expand-rules rules)) messages)))
 
 (defn -main
   "I don't do a whole lot ... yet."
