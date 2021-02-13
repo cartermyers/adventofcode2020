@@ -2,6 +2,7 @@
   (:gen-class))
 (require '[clojure.java.io :as io])
 (require '[clojure.string :as str])
+(require '[taoensso.tufte :as tufte :refer (defnp p profiled profile)])
 
 (def input (slurp (.getFile (io/resource "dec20_input.txt"))))
 
@@ -56,18 +57,18 @@
 
 (defn rotate
   [piece-with-id]
-  (let [piece (second piece-with-id)]
-    (transform-piece-with-id piece-with-id #(rotate-coordinate % (:max-x piece) (:max-y piece)))))
+  (p :rotate (let [piece (second piece-with-id)]
+                (transform-piece-with-id piece-with-id #(rotate-coordinate % (:max-x piece) (:max-y piece))))))
 
 (defn get-all-rotations
   "For a given piece, returns a list of that piece rotated 90 degrees at a time."
   [piece-with-id]
-  (loop [count 0
-         res (list piece-with-id)]
-    (if (>= count 3)
-      res
-      (recur (inc count)
-             (conj res (rotate (first res)))))))
+  (p :get-all-rotations (loop [count 0
+             res (list piece-with-id)]
+        (if (>= count 3)
+          res
+          (recur (inc count)
+                 (conj res (rotate (first res))))))))
 
 (defn flip-x
   [coordinate max-x]
@@ -96,8 +97,10 @@
   "Returns the piece ID of the second arguement if any edge of piece2 matches the top of piece1"
   [piece1-with-id piece2-with-id]
     (let [rotations (get-all-rotations piece2-with-id)]
-      (some #(do-top-edges-match? piece1-with-id %) (concat rotations (map flip rotations))))
+      (some #(p :do-top-edges-match? (do-top-edges-match? piece1-with-id %)) (concat rotations (map flip rotations))))
   )
+
+(tufte/add-basic-println-handler! {})
 
 (defn pieces-match?
   "For these two pieces, we need to find two edges that match.
@@ -106,7 +109,7 @@
   [piece1-with-id piece2-with-id]
   (if (= (first piece1-with-id) (first piece2-with-id)) ; we won't let pieces match themselves. if they have the same id, then it's nothing
     nil
-    (some #(matches-top-edge? % piece2-with-id) (get-all-rotations piece1-with-id))))
+    (some #(p :matches-top-edge? (matches-top-edge? % piece2-with-id)) (get-all-rotations piece1-with-id))))
 
 (defn get-piece-matches
   "Currently takes full O(n^2) because I check all of the pieces in the bag.
@@ -114,7 +117,7 @@
    then we can even remove that piece from future checks.
    But I think this is not needed yet."
   [piece-with-id all-pieces-with-ids]
-  (keep #(pieces-match? piece-with-id %) all-pieces-with-ids))
+  (keep #(p :pieces-match? (pieces-match? piece-with-id %)) all-pieces-with-ids))
 
 (defn is-edge?
   [val max-x max-y]
@@ -133,7 +136,7 @@
 (defn find-piece-matches
   ([all-pieces]
    (let [pieces-with-only-edges (map remove-insides all-pieces)]
-     (into {} (map #(vector (first %) (get-piece-matches % pieces-with-only-edges)) pieces-with-only-edges)))))
+     (into {} (map #(vector (first %) (p :get-piece-matches (get-piece-matches % pieces-with-only-edges))) pieces-with-only-edges)))))
 
 ; we only need to find the edges, so those are 4 pieces that only have 2 matching pieces in the bag.
 ; hopefully there aren't multiple matches (i.e., a single piece can work for more than 4 pieces or something)
