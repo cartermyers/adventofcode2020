@@ -36,12 +36,16 @@
   [in]
   (flatten (map #(first (vals (parse-line %))) (str/split-lines in))))
 
+(defn map-vals
+  [f map-entries]
+  (into {} (map #(vector (first %) (f (second %))) map-entries)))
+
 ; For each ingredient,
 ;    get the intersection of all recipes to see which ingredients are always present
 
 (defn get-allergy-ingredient-candidates
   [allergens]
-  (map #(apply clojure.set/intersection (second %)) allergens))
+  (map-vals #(apply clojure.set/intersection %) allergens))
 
 (defn flatten-all-recipes
   [recipes]
@@ -56,7 +60,32 @@
   ([allergens recipes]
    (get-count-of-all-non-allergy-ingredients
     recipes
-    (reduce clojure.set/union (get-allergy-ingredient-candidates allergens)))))
+    (reduce clojure.set/union (vals (get-allergy-ingredient-candidates allergens))))))
+
+(defn find-allergy-ingredient
+  [possible-allergy-ingredients]
+  (map-vals first 
+            (filter #(= 1 (count (second %))) possible-allergy-ingredients)))
+
+(defn remove-allergy-ingredient
+  [possible-allergy-ingredients ingredients-to-remove]
+  (map-vals #(apply (partial disj %) ingredients-to-remove) possible-allergy-ingredients))
+
+(defn find-allergy-ingredients
+  ([allergy-ingredient-candidates] (find-allergy-ingredients allergy-ingredient-candidates {}))
+  ([allergy-ingredient-candidates total]
+   (let [ingredients (find-allergy-ingredient allergy-ingredient-candidates)]
+     (if (empty? ingredients)
+       total
+       (find-allergy-ingredients (remove-allergy-ingredient allergy-ingredient-candidates (vals ingredients)) (into total ingredients))))
+   ))
+
+(defn solve-part-2
+  ([] (solve-part-2 (parse-input input)))
+  ([allergens]
+   (str/join "," (vals (into (sorted-map)
+                             (find-allergy-ingredients (get-allergy-ingredient-candidates allergens))))) 
+))
 
 (defn -main
   "I don't do a whole lot ... yet."
