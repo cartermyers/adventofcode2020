@@ -89,3 +89,21 @@
   (testing "Empty pieces match"
     (is (= '(2 3) (get-piece-matches (piece-with-id 1 {}) 
                                   (list (piece-with-id 2 {}) (piece-with-id 3 {})))))))
+
+(deftest test-remove-edges
+  (testing "Get center updates coordinates and maxes"
+    (is (= (piece-with-id-maxes 1 {{:x 0 :y 0} false} 0 0) 
+           (remove-edges (piece-with-id-maxes 1 {{:x 0 :y 0} true
+                                               {:x 1 :y 1} false
+                                               {:x 2 :y 2} true} 2 2))))))
+
+(deftest test-piece-to-string
+  (testing "One row"
+    (is (= ".##" (piece-to-string (piece-with-id-maxes {{:x 0 :y 0} false {:x 1 :y 0} true {:x 2 :y 0} true})))))
+  (testing "One column"
+    (is (= ".\n#\n#" (piece-to-string (piece-with-id-maxes {{:x 0 :y 0} false 
+                                                              {:x 0 :y 1} true 
+                                                              {:x 0 :y 2} true})))))
+  (testing "Piece"
+    (is (= ".##\n#.#" (piece-to-string (piece-with-id-maxes {{:x 0 :y 0} false {:x 1 :y 0} true {:x 2 :y 0} true
+                                                               {:x 0 :y 1} true {:x 1 :y 1} false {:x 2 :y 1} true}))))))
